@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 // Security checks run per-entry as part of registry CI.
+// Runner-aware npm resolution and explicit coverage reporting added October 2026.
 //
 // These are the Section 8a checks that can be automated:
 //
 //   - no postinstall/preinstall/install scripts in the published npm package
-//     (for install.kind in {cli, service-npm-global, agent-plugin, mcp-npx})
+//     (for cli, service-npm-global, agent-plugin, and supported mcp-npx launches)
 //   - declared license matches the published package's license field
 //   - npm package exists at the declared version
-//   - `npm audit --production` for the declared package (soft signal, warn only)
-//   - docker image digest resolves (if declared)
+//   - docker image digest declaration (runtime resolution is not performed)
 //
 // This script is deliberately read-only: it does not `npm install` anything;
 // it uses the npm registry HTTP API so CI runs are fast and sandboxed.
@@ -42,8 +42,16 @@ for (const file of argv) {
 
   const entry = JSON.parse(await fs.readFile(file, 'utf8'));
 
-  // ── Determine the npm package (if any) implied by the install kind ─────
-  const { pkg, pkgVersion } = resolveNpmPackage(entry.install);
+  // ── Determine the npm package from the install kind and runner ────────
+  const { pkg, pkgVersion, unsupported } = resolveNpmPackage(entry.install);
+
+  if (!pkg) {
+    findings.push({
+      level: unsupported ? 'warn' : 'info',
+      file: rel,
+      msg: `${unsupported ?? `No npm package checks apply to install kind "${entry.install.kind}"${entry.install.runtime ? ` (runtime "${entry.install.runtime}")` : ''}.`} Package existence, install hooks, license and provenance are not verified by this checker; manual review required.`,
+    });
+  }
 
   if (pkg) {
     const lookup = await fetchNpmMeta(pkg, pkgVersion);
@@ -155,12 +163,21 @@ function resolveNpmPackage(install) {
     case 'agent-plugin':
       return { pkg: install.package, pkgVersion: install.version };
     case 'mcp': {
-      // install.command === "npx" with args like ["-y", "<pkg>@<version>"] is the common shape.
+      if (install.command !== 'npx') {
+        return { unsupported: `Unsupported MCP launcher ${JSON.stringify(install.command)}; npm lookup skipped.` };
+      }
+      // Only consume known, value-free npx flags before a registry package.
+      // Other options can select a different package or command (e.g. --package,
+      // --call); never guess by taking their first non-option argument.
       const args = install.args ?? [];
-      const pkgArg = args.find((a) => !a.startsWith('-'));
-      if (!pkgArg) return { pkg: null };
-      const m = pkgArg.match(/^((?:@[^/]+\/)?[^@]+)(?:@(.+))?$/);
-      if (!m) return { pkg: null };
+      let i = 0;
+      while (args[i] === '-y' || args[i] === '--yes') i += 1;
+      const pkgArg = args[i];
+      // Exclude paths, URLs, aliases and other non-registry package specs.
+      const m = pkgArg?.match(/^((?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*)(?:@([^@\s/:]+))?$/);
+      if (!m || m[1].endsWith('.tgz')) {
+        return { unsupported: 'Unsupported npx argument shape; npm lookup skipped. Supported shape: npx [-y|--yes] <package>[@version] [package arguments...].' };
+      }
       return { pkg: m[1], pkgVersion: m[2] };
     }
     default:

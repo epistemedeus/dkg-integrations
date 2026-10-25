@@ -97,7 +97,8 @@ Use `integrations/TEMPLATE.json` as a starting point. Submit the PR with:
 
 ## 6. What happens next
 
-- **CI runs.** Schema + structural checks via `scripts/validate.mjs`; security checks via `scripts/security-checks.mjs` against the declared npm package.
+<!-- Updated October 2026: runner-aware package-check coverage. -->
+- **CI runs.** Schema + structural checks via `scripts/validate.mjs`; security checks via `scripts/security-checks.mjs` against supported npm install declarations. Other MCP launchers (including `uvx`) and ambiguous npx arguments warn that package checks require manual review, without querying npm. See [package-check coverage](README.md#what-ci-checks-automatically) for the supported shapes and limits.
 - **Committee review.** Fit, quality, and trust tier are assigned by humans, not CI.
 - **Merge and tier.** The committee may merge your entry as `community`, `verified`, or `featured`. You submit as `community`; upgrades are decided by the committee.
 
@@ -118,7 +119,8 @@ git clone https://github.com/OriginTrail/dkg-integrations.git
 cd dkg-integrations
 npm install
 npm run validate         # runs the schema + structural checks on every entry
-npm run security-checks  # runs the security checks on the two seed entries
+npm run security-checks  # checks the dkg-hello-world entry against npm
+node --test --test-concurrency=1 scripts/security-checks.test.mjs  # offline checker regressions
 ```
 
 ---
