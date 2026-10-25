@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 // Security checks run per-entry as part of registry CI.
-// Runner-aware npm resolution and explicit coverage reporting added October 2026.
 //
 // These are the Section 8a checks that can be automated:
 //

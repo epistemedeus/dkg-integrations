@@ -80,8 +80,6 @@ Contributors submit as `community`; the review committee may upgrade the tier.
 
 ## What CI checks automatically
 
-<!-- Updated October 2026: runner-aware package-check coverage. -->
-
 Every registry PR runs:
 
 - JSON Schema validation against `schema/integration.schema.json`
@@ -109,7 +107,7 @@ unsupported npx argument shapes produce a warning and **never query npm**. Their
 package existence, install hooks, license and provenance remain unverified;
 this checker does not verify PyPI. Manual entries and Docker/binary services
 also report that npm package checks do not apply and require manual review.
-Docker digest declarations are still checked, without resolving the image.
+Docker digest declarations are reported without resolving the image.
 
 A missing pinned npm version or an install hook fails the check. An unpublished
 npm package, license mismatch, missing provenance or unsupported MCP launch only
